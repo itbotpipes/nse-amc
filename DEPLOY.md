@@ -2,6 +2,7 @@
 
 The code is already Vercel-ready (`api/index.py`, `vercel.json`, Postgres + Blob support).
 What remains needs **your accounts** — follow these steps in order.
+test
 
 ## 1. Push to GitHub
 
