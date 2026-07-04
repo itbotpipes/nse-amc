@@ -90,6 +90,15 @@
     <td class="lbl">Address</td><td>{{ v.contract.site_address or '' }}</td>
     <td class="lbl">Technician</td><td>{{ v.technician.name if v.technician else '' }}</td>
   </tr>
+  {% if v.checkin_at %}
+  <tr>
+    <td class="lbl">On-site time</td>
+    <td colspan="3">
+      {{ v.checkin_at.strftime('%d-%m-%Y %H:%M') }}
+      {% if v.checkout_at %} to {{ v.checkout_at.strftime('%H:%M') }} ({{ v.onsite_duration_label }}){% endif %}
+    </td>
+  </tr>
+  {% endif %}
 </table>
 
 <!-- ── Work done ── -->

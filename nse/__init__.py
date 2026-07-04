@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from flask import Flask
+from flask import Flask, request
 from flask_login import current_user
 
 from .config import Config
@@ -111,6 +111,19 @@ def create_app(config_class=Config):
         if not value:
             return "—"
         return value.strftime(fmt)
+
+    @app.after_request
+    def _no_cache_html(response):
+        """Every page here is dynamic/session-specific (notifications, role-gated
+        content, live statuses) — never let a browser serve a stale cached copy.
+        This matters a lot during phone-based testing: Safari's back-forward
+        cache in particular will happily show a page from before your last
+        template edit unless the response explicitly forbids it. Static files
+        (CSS/JS/images/uploads) are left alone so they keep normal caching."""
+        if not request.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+        return response
 
     with app.app_context():
         db.create_all()

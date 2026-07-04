@@ -115,25 +115,6 @@
   </div>
   {% endif %}
 
-  <!-- ── Wave 11: instalment schedule ──────────────────────────────────────── -->
-  {% if c.installment_plan %}
-  <div class="mt-4 card p-4">
-    <h2 class="font-bold text-navy-800 text-sm mb-2">Your instalment plan</h2>
-    <div class="space-y-1.5">
-      {% for it in c.installment_plan %}
-      <div class="flex items-center justify-between text-sm border-b border-slate-100 pb-1.5">
-        <span class="text-navy-800">{{ it.label }} <span class="text-xs text-ink-subtle">· due {{ it.due_date|datefmt }}</span>
-          {% if it.is_overdue %}<span class="text-xs text-red-600 font-semibold ml-1">overdue</span>{% endif %}</span>
-        <span class="flex items-center gap-2">
-          <span class="font-semibold">{{ it.amount|rupees }}</span>
-          <span class="text-xs px-2 py-0.5 rounded-full font-semibold {{ 'bg-green-50 text-green-700' if it.paid else 'bg-slate-100 text-slate-500' }}">{{ 'Paid' if it.paid else 'Due' }}</span>
-        </span>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
   <!-- Service roadmap -->
   <div class="mt-6">{{ workflow_track(c) }}</div>
 
@@ -176,37 +157,6 @@
   </div>
   {% else %}
   <p class="text-slate-500 text-sm bg-white border border-dashed border-slate-300 rounded-xl p-5">Visits will appear here once your contract is activated.</p>
-  {% endif %}
-
-  <!-- Equipment & refills -->
-  <h2 class="text-lg font-bold text-navy-800 mt-8 mb-3">Equipment &amp; refill register</h2>
-  {% if c.equipment %}
-  <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
-    <table class="w-full text-sm min-w-[640px]">
-      <thead class="bg-slate-50 text-slate-500 text-left text-xs uppercase">
-        <tr><th class="px-4 py-2">Equipment</th><th class="px-4 py-2">Location</th><th class="px-4 py-2">Last refill</th><th class="px-4 py-2">Next due</th><th class="px-4 py-2">Status</th></tr>
-      </thead>
-      <tbody>
-      {% for e in c.equipment %}
-        <tr class="border-t border-slate-100">
-          <td class="px-4 py-2">
-            <a href="{{ url_for('portal.equipment_detail', equipment_id=e.id) }}" class="font-medium text-primary hover:underline">{{ e.name }}</a>
-            <div class="text-xs text-slate-400">{{ e.equip_type or '' }}{% if e.serial_no %} · {{ e.serial_no }}{% endif %}</div>
-          </td>
-          <td class="px-4 py-2 text-slate-600">{{ e.location or '—' }}</td>
-          <td class="px-4 py-2 text-slate-600">{{ e.last_refill_date|datefmt }}</td>
-          <td class="px-4 py-2">
-            <span class="text-slate-700">{{ e.next_refill_date|datefmt }}</span>
-            {% if e.days_to_refill is not none %}<div class="text-xs text-slate-400">{% if e.days_to_refill < 0 %}{{ -e.days_to_refill }} days overdue{% else %}in {{ e.days_to_refill }} days{% endif %}</div>{% endif %}
-          </td>
-          <td class="px-4 py-2">{{ refill_badge(e) }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <p class="text-slate-500 text-sm bg-white border border-dashed border-slate-300 rounded-xl p-5">Your equipment list will appear here after the first visit.</p>
   {% endif %}
 
   <!-- AMC Fire Safety Certificate -->
@@ -395,13 +345,6 @@
           <option value="high">High — urgent</option>
           <option value="low">Low — general feedback</option>
         </select>
-      </div>
-      <div>
-        <label class="block text-sm font-medium text-ink-muted mb-1">Photos (optional)</label>
-        <input type="file" name="attachments" multiple accept="image/*,video/*"
-               class="block w-full text-sm text-ink-subtle file:mr-3 file:py-1.5 file:px-3
-                      file:rounded-lg file:border-0 file:text-sm file:font-medium
-                      file:bg-amber-50 file:text-amber-800">
       </div>
       {% from "_macros.html" import voice_note_widget %}
       {{ voice_note_widget("voice_note", "Voice note (optional)") }}

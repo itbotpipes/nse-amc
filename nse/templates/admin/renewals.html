@@ -12,35 +12,53 @@
   <p class="text-ink-subtle text-sm mb-6">Active contracts expiring within 90 days (or already expired) that have not yet been renewed. Raise a renewal quote in one click.</p>
 
   {% if items %}
-  {% set bands = {'expired':'Expired','30':'Expiring ≤ 30 days','60':'Expiring ≤ 60 days','90':'Expiring ≤ 90 days'} %}
-  <div class="space-y-3">
-    {% for r in items %}
-    {% set sev = {'high':'p-high','medium':'p-medium','low':'p-low'}.get(r.severity, 'p-info') %}
-    <div class="priority-card {{ sev }} card p-4">
-      <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div class="flex items-center gap-2">
-            <a href="{{ url_for('admin.contract', contract_id=r.contract_id) }}" class="font-bold text-primary mono">{{ r.reference }}</a>
-            <span class="text-xs px-2 py-0.5 rounded-full font-semibold
-              {{ 'bg-red-50 text-red-700' if r.window in ('expired','30') else 'bg-amber-50 text-amber-800' if r.window=='60' else 'bg-blue-50 text-blue-700' }}">
-              {{ bands.get(r.window, r.window) }}
-            </span>
+  {% set bands = {'expired':'Overdue','7':'Due this week','30':'Due this month','60':'Expiring ≤ 60 days','90':'Expiring ≤ 90 days'} %}
+  {% set groups = [
+    ('Overdue', ['expired'], 'Contracts already past their renewal date — highest priority.'),
+    ('Due this week', ['7'], 'Expiring within 7 days.'),
+    ('Due this month', ['30'], 'Expiring within 30 days.'),
+    ('Later (60–90 days)', ['60','90'], 'On the radar — worth a heads-up call, no rush yet.'),
+  ] %}
+  {% for label, windows, sub in groups %}
+    {% set group_items = items|selectattr('window', 'in', windows)|list %}
+    {% if group_items %}
+    <div class="mb-7">
+      <div class="flex items-center gap-2 mb-1">
+        <h2 class="text-sm font-bold text-ink uppercase tracking-wide">{{ label }}</h2>
+        <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-slate-100 text-slate-600">{{ group_items|length }}</span>
+      </div>
+      <p class="text-xs text-ink-subtle mb-3">{{ sub }}</p>
+      <div class="space-y-3">
+        {% for r in group_items %}
+        {% set sev = {'high':'p-high','medium':'p-medium','low':'p-low'}.get(r.severity, 'p-info') %}
+        <div class="priority-card {{ sev }} card p-4">
+          <div class="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div class="flex items-center gap-2">
+                <a href="{{ url_for('admin.contract', contract_id=r.contract_id) }}" class="font-bold text-primary mono">{{ r.reference }}</a>
+                <span class="text-xs px-2 py-0.5 rounded-full font-semibold
+                  {{ 'bg-red-50 text-red-700' if r.window in ('expired','7','30') else 'bg-amber-50 text-amber-800' if r.window=='60' else 'bg-blue-50 text-blue-700' }}">
+                  {{ bands.get(r.window, r.window) }}
+                </span>
+              </div>
+              <div class="text-sm text-ink-muted mt-1">{{ r.detail }}</div>
+              <div class="text-xs text-ink-subtle mt-0.5">{{ r.customer_name }}{% if r.site %} · {{ r.site }}{% endif %}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              {% if r.customer_id %}
+              <a href="{{ url_for('admin.client_portfolio', user_id=r.customer_id) }}" class="btn btn-ghost text-xs px-3 py-1.5">Client</a>
+              {% endif %}
+              <form method="post" action="{{ url_for('admin.renew_contract', contract_id=r.contract_id) }}">
+                <button class="btn btn-primary text-xs px-3 py-1.5">Renew — share quote</button>
+              </form>
+            </div>
           </div>
-          <div class="text-sm text-ink-muted mt-1">{{ r.detail }}</div>
-          <div class="text-xs text-ink-subtle mt-0.5">{{ r.customer_name }}{% if r.site %} · {{ r.site }}{% endif %}</div>
         </div>
-        <div class="flex items-center gap-2">
-          {% if r.customer_id %}
-          <a href="{{ url_for('admin.client_portfolio', user_id=r.customer_id) }}" class="btn btn-ghost text-xs px-3 py-1.5">Client</a>
-          {% endif %}
-          <form method="post" action="{{ url_for('admin.renew_contract', contract_id=r.contract_id) }}">
-            <button class="btn btn-primary text-xs px-3 py-1.5">Create renewal quote</button>
-          </form>
-        </div>
+        {% endfor %}
       </div>
     </div>
-    {% endfor %}
-  </div>
+    {% endif %}
+  {% endfor %}
   {% else %}
   <div class="card p-12 text-center text-ink-subtle">
     <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-green-50 grid place-items-center">

@@ -162,44 +162,6 @@
   </div>
   {% endif %}
 
-  <!-- Instalment plan -->
-  <div class="bg-white rounded-2xl border border-slate-200 p-4 mt-4">
-    <h2 class="font-bold text-navy-800 mb-1">Instalment / EMI plan</h2>
-    {% if c.installment_plan %}
-    <div class="space-y-1.5 mb-3">
-      {% for it in c.installment_plan %}
-      <div class="flex items-center justify-between text-sm border-b border-slate-100 pb-1.5">
-        <span class="text-navy-800">{{ it.label }} · <span class="text-slate-500">{{ it.due_date|datefmt }}</span>
-          {% if it.is_overdue %}<span class="text-xs text-red-600 font-semibold">overdue</span>{% endif %}</span>
-        <span class="flex items-center gap-2">
-          <span class="font-semibold">{{ it.amount|rupees }}</span>
-          <form method="post" action="{{ url_for('admin.installment_pay', inst_id=it.id) }}">
-            <button class="text-xs px-2 py-1 rounded-full font-semibold {{ 'bg-green-50 text-green-700' if it.paid else 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">{{ 'Paid ✓' if it.paid else 'Mark paid' }}</button>
-          </form>
-        </span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-xs text-slate-500 mb-3">Split the annual fee into instalments for this client.</p>
-    {% endif %}
-    <form method="post" action="{{ url_for('admin.contract_installments', contract_id=c.id) }}" class="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
-      <label class="text-xs text-slate-500">Parts
-        <select name="count" class="block mt-0.5 px-2 py-1.5 rounded border border-slate-300 text-sm">
-          {% for n in [2,3,4,6,12] %}<option value="{{ n }}" {{ 'selected' if n==4 }}>{{ n }}</option>{% endfor %}
-        </select></label>
-      <label class="text-xs text-slate-500">Frequency
-        <select name="frequency" class="block mt-0.5 px-2 py-1.5 rounded border border-slate-300 text-sm">
-          <option value="monthly">Monthly</option>
-          <option value="quarterly" selected>Quarterly</option>
-          <option value="half">Half-yearly</option>
-        </select></label>
-      <label class="text-xs text-slate-500">First due
-        <input type="date" name="first_due" class="block mt-0.5 px-2 py-1.5 rounded border border-slate-300 text-sm"></label>
-      <button class="bg-navy-800 text-white px-4 py-2 rounded-lg text-sm hover:bg-navy-700">{{ 'Rebuild' if c.installment_plan else 'Create' }} plan</button>
-    </form>
-  </div>
-
   <!-- Visits -->
   <div class="flex items-center justify-between mt-8 mb-3">
     <h2 class="text-lg font-bold text-navy-800">Visits</h2>
@@ -225,48 +187,6 @@
     </div>
     {% endfor %}
   </div>
-
-  <!-- Equipment -->
-  <div class="flex items-center justify-between mt-8 mb-3">
-    <h2 class="text-lg font-bold text-navy-800">Equipment &amp; refills</h2>
-    <button onclick="document.getElementById('addEquip').classList.toggle('hidden')" class="text-sm bg-navy-800 text-white px-3 py-1.5 rounded-lg hover:bg-navy-700">+ Add equipment</button>
-  </div>
-
-  <form id="addEquip" method="post" action="{{ url_for('admin.add_equipment', contract_id=c.id) }}" class="hidden bg-white rounded-2xl border border-slate-200 p-4 mb-3 grid sm:grid-cols-3 gap-3">
-    <input name="name" required placeholder="Name e.g. ABC 6kg" class="px-3 py-2 rounded-lg border border-slate-300 text-sm">
-    <input name="equip_type" placeholder="Type e.g. extinguisher" class="px-3 py-2 rounded-lg border border-slate-300 text-sm">
-    <input name="location" placeholder="Location" class="px-3 py-2 rounded-lg border border-slate-300 text-sm">
-    <input name="serial_no" placeholder="Serial no" class="px-3 py-2 rounded-lg border border-slate-300 text-sm">
-    <label class="text-xs text-slate-500">Last refill<input type="date" name="last_refill_date" class="block w-full px-3 py-1.5 rounded-lg border border-slate-300 text-sm"></label>
-    <label class="text-xs text-slate-500">Interval (months)<input type="number" name="refill_interval_months" value="12" class="block w-full px-3 py-1.5 rounded-lg border border-slate-300 text-sm"></label>
-    <button class="sm:col-span-3 bg-green-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-500">Save equipment</button>
-  </form>
-
-  {% if c.equipment %}
-  <div class="bg-white rounded-2xl border border-slate-200 overflow-x-auto">
-    <table class="w-full text-sm min-w-[680px]">
-      <thead class="bg-slate-50 text-slate-500 text-left text-xs uppercase">
-        <tr><th class="px-4 py-2">Equipment</th><th class="px-4 py-2">Last refill</th><th class="px-4 py-2">Next due</th><th class="px-4 py-2">Status</th><th class="px-4 py-2">Record refill</th></tr>
-      </thead>
-      <tbody>
-      {% for e in c.equipment %}
-        <tr class="border-t border-slate-100">
-          <td class="px-4 py-2"><div class="font-medium text-navy-800">{{ e.name }}</div><div class="text-xs text-slate-400">{{ e.location or '' }}</div></td>
-          <td class="px-4 py-2 text-slate-600">{{ e.last_refill_date|datefmt }}</td>
-          <td class="px-4 py-2 text-slate-600">{{ e.next_refill_date|datefmt }}</td>
-          <td class="px-4 py-2">{{ refill_badge(e) }}</td>
-          <td class="px-4 py-2">
-            <form method="post" action="{{ url_for('admin.add_refill', equip_id=e.id) }}" class="flex gap-1">
-              <input type="date" name="refill_date" value="{{ today.isoformat() }}" class="px-2 py-1 rounded border border-slate-300 text-xs">
-              <button class="bg-navy-800 text-white px-2 py-1 rounded text-xs hover:bg-navy-700">Refill</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}<p class="text-slate-500 text-sm">No equipment added yet.</p>{% endif %}
 
   <!-- Quotations -->
   <div class="flex items-center justify-between mt-8 mb-3">

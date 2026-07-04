@@ -4,7 +4,7 @@
 <style>
   body{overflow:hidden;}
   .nse-ops-wrap{display:flex;height:100vh;overflow:hidden;background:var(--canvas);}
-  .nse-sidebar{width:238px;flex:none;height:100%;overflow-y:auto;background:linear-gradient(180deg,#171d3a,#141834);border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;}
+  .nse-sidebar{width:238px;flex:none;height:100%;overflow-y:auto;background:linear-gradient(180deg,#171d3a,#141834);border-right:1px solid rgba(255,255,255,.06);display:flex;flex-direction:column;transition:transform .25s ease;}
   .nse-sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);}
   .nse-ops-body{flex:1;display:flex;flex-direction:column;min-width:0;height:100%;overflow:hidden;}
   .nse-ops-hdr{flex:none;display:flex;align-items:center;justify-content:space-between;padding:11px 24px;background:rgba(246,245,242,.92);backdrop-filter:blur(8px);border-bottom:1px solid var(--hair);}
@@ -15,12 +15,39 @@
   .snav.active{background:rgba(255,255,255,.08);color:#fff;font-weight:600;}
   .snav svg{flex:none;opacity:.7;}.snav.active svg{opacity:1;}
   .snav-section{font-size:10.5px;font-weight:600;color:#5c628a;text-transform:uppercase;letter-spacing:.07em;padding:14px 10px 6px;}
+  /* Mobile: sidebar becomes a slide-in drawer instead of a permanent flex column —
+     fixes it eating ~60% of a phone screen with no way to dismiss it. */
+  .nse-ops-hamburger{display:none;}
+  .nse-sidebar-backdrop{display:none;}
+  @media (max-width: 860px){
+    .nse-ops-hamburger{display:flex;}
+    .nse-sidebar{position:fixed;top:0;left:0;z-index:80;transform:translateX(-100%);box-shadow:0 0 0 rgba(0,0,0,0);}
+    body.nse-sidebar-open .nse-sidebar{transform:translateX(0);box-shadow:8px 0 24px -8px rgba(0,0,0,.35);}
+    .nse-sidebar-backdrop{display:block;position:fixed;inset:0;background:rgba(10,13,26,.5);z-index:70;opacity:0;pointer-events:none;transition:opacity .2s ease;}
+    body.nse-sidebar-open .nse-sidebar-backdrop{opacity:1;pointer-events:auto;}
+    .nse-ops-hdr{padding:11px 14px;}
+    .nse-ops-inner{padding:16px 14px 48px;}
+    .nse-ops-flash{padding-left:14px !important;padding-right:14px !important;}
+    .hidden-mobile-crumb{display:none;}
+    /* Data tables (Quotations, Contracts, Enquiries, etc.) are all `.card
+       overflow-hidden` + `table.w-full` — that combination *clips* extra
+       columns on a narrow screen instead of letting you scroll to them
+       (the "AMOUNT" column getting cut off). Let cards containing a table
+       scroll horizontally, and stop forcing the table down to 100% width so
+       columns keep a readable minimum instead of being squeezed unreadable. */
+    .nse-ops-inner .card:has(> table),
+    .nse-ops-inner .card:has(> div > table){overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .nse-ops-inner table.w-full{width:auto;min-width:640px;}
+  }
 </style>
 
 <div class="nse-ops-wrap">
 
+  <!-- Mobile-only backdrop — tap to close the sidebar drawer -->
+  <div class="nse-sidebar-backdrop" onclick="document.body.classList.remove('nse-sidebar-open')"></div>
+
   <!-- ── Sidebar ── -->
-  <aside class="nse-sidebar">
+  <aside class="nse-sidebar" onclick="if(event.target.closest('a')) document.body.classList.remove('nse-sidebar-open')">
     <!-- Logo -->
     <div style="display:flex;align-items:center;gap:10px;padding:15px 14px 12px;border-bottom:1px solid rgba(255,255,255,.06);">
       <div style="width:32px;height:32px;border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;flex:none;overflow:hidden;">
@@ -143,10 +170,14 @@
   <div class="nse-ops-body">
     <!-- Header -->
     <header class="nse-ops-hdr">
-      <div style="display:flex;align-items:center;gap:8px;font-size:13px;">
-        <span style="color:var(--ink3);font-weight:500;">Northern Star</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c9c7bf" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        <span style="color:var(--ink);font-weight:600;">{% block crumb %}{% block title_inner %}{% endblock %}{% endblock %}</span>
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;min-width:0;">
+        <button type="button" class="nse-ops-hamburger" onclick="document.body.classList.toggle('nse-sidebar-open')"
+                style="align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#fff;border:1px solid var(--hair2);flex:none;margin-right:2px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1b1c22" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+        <span class="hidden-mobile-crumb" style="color:var(--ink3);font-weight:500;white-space:nowrap;">Northern Star</span>
+        <svg class="hidden-mobile-crumb" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#c9c7bf" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        <span style="color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{% block crumb %}{% block title_inner %}{% endblock %}{% endblock %}</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
         <!-- Bell -->
@@ -174,15 +205,15 @@
             <a href="{{ url_for('admin.notifications') }}" style="display:block;padding:10px;text-align:center;font-size:12px;color:var(--pri);border-top:1px solid var(--hair3);text-decoration:none;">View all →</a>
           </div>
         </details>
-        <a href="{{ url_for('sq.new_quotation') }}" style="display:inline-flex;align-items:center;gap:6px;background:#072076;color:#fff;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:8px;text-decoration:none;box-shadow:0 1px 2px rgba(7,32,118,.25);">
+        <a href="{{ url_for('sq.new_quotation') }}" style="display:inline-flex;align-items:center;gap:6px;background:#072076;color:#fff;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:8px;text-decoration:none;box-shadow:0 1px 2px rgba(7,32,118,.25);white-space:nowrap;">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>
-          New Quotation
+          <span class="hidden-mobile-crumb">New Quotation</span>
         </a>
       </div>
     </header>
 
     <!-- Flash messages -->
-    <div style="padding:0 24px;">
+    <div class="nse-ops-flash" style="padding:0 24px;">
       {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}
       {% set ns_flash = namespace(chime=false) %}
       <div style="margin-top:14px;display:flex;flex-direction:column;gap:8px;">

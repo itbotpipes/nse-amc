@@ -179,7 +179,7 @@ def renewal_reminders(customer_id=None):
     if customer_id:
         q = q.filter(Contract.customer_id == customer_id)
 
-    sev_map = {"expired": "high", "30": "high", "60": "medium", "90": "low"}
+    sev_map = {"expired": "high", "7": "high", "30": "high", "60": "medium", "90": "low"}
     out = []
     for c in q.all():
         w = c.renewal_window
@@ -200,7 +200,7 @@ def renewal_reminders(customer_id=None):
             "site": c.site_name or c.area or "",
             "detail": detail,
         })
-    order = {"expired": 0, "30": 1, "60": 2, "90": 3}
+    order = {"expired": 0, "7": 1, "30": 2, "60": 3, "90": 4}
     out.sort(key=lambda r: (order.get(r["window"], 9), r["days"] if r["days"] is not None else 999))
     return out
 
@@ -222,7 +222,7 @@ def process_milestones():
     for c in active:
         # ---- Renewal bands ----
         w = c.renewal_window
-        if w in ("90", "60", "30"):
+        if w in ("90", "60", "30", "7"):
             mtype = f"renewal_{w}"
             exists = MilestoneLog.query.filter_by(
                 contract_id=c.id, milestone_type=mtype).first()

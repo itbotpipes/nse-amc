@@ -6,7 +6,6 @@
   <a href="{{ url_for('admin.contract', contract_id=v.contract_id) }}" class="text-sm text-slate-500 hover:text-navy-700">← {{ v.contract.reference }}</a>
   <h1 class="text-2xl font-extrabold text-navy-800 mt-2">{{ v.label }} {{ status_badge(v.status) }}</h1>
 
-  {% if not is_future %}
   <!-- ── Wave 11: on-site check-in / check-out ─────────────────────────────── -->
   <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 mt-4 flex flex-wrap items-center gap-3">
     <div class="flex-1 min-w-[180px]">
@@ -32,37 +31,16 @@
     </form>
     {% endif %}
   </div>
-  {% endif %}
 
   {% if is_future %}
-  <!-- ── Future-date lock banner ─────────────────────────────────────────── -->
-  <div class="bg-amber-50 border border-amber-300 rounded-2xl p-5 mt-4 flex items-start gap-3">
-    <span class="text-2xl">🔒</span>
-    <div>
-      <div class="font-bold text-amber-900">Visit locked until {{ v.scheduled_date.strftime('%d %b %Y') }}</div>
-      <p class="text-sm text-amber-800 mt-1">This visit is scheduled for a future date. All fields are read-only until the visit day arrives — no one can fill or edit them in advance. You can still reschedule the date or change the assigned technician below.</p>
-    </div>
+  <!-- ── Informational only — no longer a lock. Visits can be completed early
+       (e.g. a client asks to move a visit up); saving below will automatically
+       shift the scheduled date to match and notify the client. ─────────────── -->
+  <div class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mt-4 flex items-start gap-3">
+    <svg class="w-5 h-5 text-blue-600 flex-none mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    <p class="text-sm text-blue-900">This visit is scheduled for <strong>{{ v.scheduled_date.strftime('%d %b %Y') }}</strong>, which hasn't arrived yet. You can still complete it early if the client needs it done sooner — the scheduled date will automatically update to today and the client will be notified of the change.</p>
   </div>
-
-  <!-- Reschedule + technician only (allowed before visit date) -->
-  <form method="post" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mt-4 space-y-4">
-    <div class="grid sm:grid-cols-2 gap-3">
-      <label class="block"><span class="text-sm font-medium text-slate-700">Scheduled date</span>
-        <input type="date" name="scheduled_date" value="{{ v.scheduled_date.isoformat() if v.scheduled_date }}" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-300"></label>
-      <label class="block"><span class="text-sm font-medium text-slate-700">Technician</span>
-        <select name="technician_id" class="mt-1 w-full px-3 py-2 rounded-lg border border-slate-300">
-          <option value="">— Unassigned —</option>
-          {% for t in techs %}<option value="{{ t.id }}" {{ 'selected' if v.technician_id==t.id }}>{{ t.name }}</option>{% endfor %}
-        </select></label>
-    </div>
-    <!-- Hidden fields to pass through unchanged values -->
-    <input type="hidden" name="status" value="{{ v.status }}">
-    <input type="hidden" name="work_done" value="{{ v.work_done or '' }}">
-    <input type="hidden" name="notes" value="{{ v.notes or '' }}">
-    <input type="hidden" name="checklist_items_json" value="">
-    <button class="bg-navy-800 text-white font-semibold px-6 py-2.5 rounded-xl hover:bg-navy-700">Save changes</button>
-  </form>
-  {% else %}
+  {% endif %}
 
   <form method="post" enctype="multipart/form-data" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 mt-4 space-y-5">
     <div class="grid sm:grid-cols-3 gap-3">
@@ -139,7 +117,6 @@
             onclick="serializeChecklist()">Save visit</button>
     <p class="text-xs text-slate-500 text-center">Marking as <strong>completed</strong> notifies the customer and publishes the report &amp; photos to their portal.</p>
   </form>
-  {% endif %}{# end is_future / else #}
 
   <!-- ── On-site: payment status (technician can update during the visit) ── -->
   <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mt-5">
@@ -160,14 +137,13 @@
     </form>
   </div>
 
-  {% if not is_future %}
   <!-- ── On-site: raise a material quotation from inventory ──────────────── -->
   <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mt-5">
     <h2 class="font-bold text-navy-800 mb-1">Raise material quotation</h2>
     <p class="text-xs text-slate-500 mb-3">Found a part that needs replacing? Pick from the inventory list — the rate auto-fills. On save it is instantly shared with the client for approval.</p>
 
     <datalist id="inv-list">
-      {% for it in inventory %}<option value="{{ it.name }}">{{ it.category }} · {{ it.rate|rupees }}/{{ it.unit }}</option>{% endfor %}
+      {% for it in inventory %}<option value="{{ it.name }}" data-rate="{{ it.rate }}">{{ it.category }} · {{ it.rate|rupees }}/{{ it.unit }}</option>{% endfor %}
     </datalist>
 
     <form method="post" action="{{ url_for('admin.visit_quotation', visit_id=v.id) }}">
@@ -300,7 +276,6 @@
       {% endfor %}
     </div>
     {% endif %}
-    {% if not is_future %}
     <form method="post" action="{{ url_for('admin.visit_defect_add', visit_id=v.id) }}" enctype="multipart/form-data" class="grid sm:grid-cols-2 gap-2 border-t border-slate-100 pt-3">
       <input type="text" name="equipment_name" placeholder="Faulty equipment *" required class="px-3 py-2 rounded-lg border border-slate-300 text-sm">
       <input type="text" name="location" placeholder="Location (e.g. 3rd floor)" class="px-3 py-2 rounded-lg border border-slate-300 text-sm">
@@ -313,10 +288,7 @@
       <textarea name="description" rows="2" placeholder="What is wrong?" class="px-3 py-2 rounded-lg border border-slate-300 text-sm sm:col-span-2"></textarea>
       <div class="sm:col-span-2"><button class="bg-red-600 text-white font-semibold px-4 py-2 rounded-xl hover:bg-red-700 text-sm">Log defect</button></div>
     </form>
-    {% endif %}
   </div>
-
-  {% endif %}{# end not is_future #}
 
   <!-- ── Fire System Health Checkup Report ───────────────────────────────── -->
   <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mt-5">
@@ -426,10 +398,16 @@ function serializeChecklist() {
 }
 
 // ── Inventory-driven material quotation picker ──────────────────────────────
-var INV = {
-  {% for it in inventory %}"{{ it.name|replace('"','\\"') }}": {{ it.rate }}{{ "," if not loop.last }}
-  {% endfor %}
-};
+// Built from the datalist's own data-rate attributes at runtime (not a
+// hand-written JS object literal) — item names with a literal quote mark
+// (e.g. `G.I. "C" Class Pipe`) used to get HTML-escaped by Jinja into
+// `&#34;` when embedded directly into JS source, breaking the lookup key
+// for exactly those items. Reading it back off the DOM sidesteps that
+// entirely, since the browser decodes the HTML entity for us.
+var INV = {};
+document.querySelectorAll('#inv-list option').forEach(function(o){
+  INV[o.value] = parseFloat(o.dataset.rate) || 0;
+});
 function invFill(input) {
   var rate = INV[input.value];
   if (rate !== undefined) {

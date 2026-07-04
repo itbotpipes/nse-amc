@@ -296,6 +296,13 @@ def visit(visit_id):
             _apply_reschedule(v, new_date)
         if v.status == "completed" and not v.completed_date:
             v.completed_date = date.today()
+        # Completed ahead of its originally scheduled date (client asked to move
+        # it up, technician was free early, etc.) — there's no more "locked
+        # until the date arrives" restriction, so instead we treat this as an
+        # implicit reschedule: snap the scheduled date to today and notify the
+        # client via the same path as an explicit reschedule.
+        if v.status == "completed" and v.scheduled_date and v.scheduled_date > date.today():
+            _apply_reschedule(v, date.today())
         # Report upload
         report = request.files.get("report")
         path = save_upload(report, f"reports/contract{v.contract_id}", {"pdf", "png", "jpg", "jpeg"})
@@ -1337,7 +1344,13 @@ def renew_contract(contract_id):
                link=(url_for("portal.service_quotation", sq_id=sq.id) if sq
                      else url_for("portal.contract", contract_id=nc.id)))
     flash(f"Renewal {nc.reference} created from {src.reference}"
-          + (f" with quote {sq.reference}." if sq else "."), "success_chime")
+          + (f" with quote {sq.reference} — share it with the client below." if sq else "."),
+          "success_chime")
+    # Straight to the shareable quote page (copy-link / WhatsApp / QR) so staff
+    # can send it to the client in the same click, instead of an extra hop
+    # through the contract page first.
+    if sq:
+        return redirect(url_for("sq.detail_quotation", sq_id=sq.id))
     return redirect(url_for("admin.contract", contract_id=nc.id))
 
 
@@ -1354,6 +1367,11 @@ def visit_checkin(visit_id):
     if v.status == "scheduled":
         v.status = "in_progress"
     db.session.commit()
+    if v.contract and v.contract.customer_id:
+        notify(v.contract.customer_id, "Your technician has arrived",
+               f"{v.technician.name if v.technician else 'Your technician'} checked in "
+               f"for {v.label} at {v.contract.reference} at {v.checkin_at:%H:%M}.",
+               link=url_for("portal.contract", contract_id=v.contract_id))
     flash(f"Checked in for {v.label} at {v.checkin_at:%H:%M}.", "success")
     return redirect(url_for("admin.visit", visit_id=v.id))
 
@@ -1367,6 +1385,12 @@ def visit_checkout(visit_id):
         v.checkin_at = datetime.utcnow()
     v.checkout_at = datetime.utcnow()
     db.session.commit()
+    if v.contract and v.contract.customer_id:
+        notify(v.contract.customer_id, "Your technician has left the site",
+               f"{v.technician.name if v.technician else 'Your technician'} checked out "
+               f"after {v.label} at {v.contract.reference} — on site "
+               f"{v.onsite_duration_label or '0m'} ({v.checkin_at:%H:%M}–{v.checkout_at:%H:%M}).",
+               link=url_for("portal.contract", contract_id=v.contract_id))
     flash(f"Checked out — on site {v.onsite_duration_label or '0m'}.", "success")
     return redirect(url_for("admin.visit", visit_id=v.id))
 

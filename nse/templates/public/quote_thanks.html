@@ -58,14 +58,22 @@
         <p class="msg">Your response for {{ sq.reference }} has been recorded.</p>
       {% endif %}
 
+      {% if current_user.is_authenticated %}
+      <div class="box">
+        <strong>You're all set — no login needed.</strong><br>
+        We've opened your account automatically. Tap below to see your contract,
+        service history and reports any time.
+      </div>
+      <a class="btn btn-navy" href="{{ url_for('portal.dashboard') }}">View my account</a>
+      {% else %}
       <div class="box">
         <strong>Your account is ready.</strong><br>
         Whenever you wish, log in with your mobile number
         {% if sq.customer_phone %}<strong>{{ sq.customer_phone }}</strong>{% endif %}
         to see your service history, reports and visits. No app download needed.
       </div>
-
       <a class="btn btn-navy" href="{{ url_for('auth.login') }}">Log in to my account</a>
+      {% endif %}
       <a class="btn btn-ghost" href="tel:{{ COMPANY_PHONE }}">Call us: {{ COMPANY_PHONE }}</a>
     </div>
     <div class="foot">

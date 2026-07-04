@@ -89,14 +89,6 @@
           <option value="low">Low — general feedback</option>
         </select>
       </div>
-      <div>
-        <label class="block text-sm font-medium text-ink-muted mb-1">Photos or videos (optional)</label>
-        <input type="file" name="attachments" multiple accept="image/*,video/*"
-               class="block w-full text-sm text-ink-subtle file:mr-3 file:py-1.5 file:px-3
-                      file:rounded-lg file:border-0 file:text-sm file:font-medium
-                      file:bg-amber-50 file:text-amber-800 hover:file:bg-amber-100">
-        <p class="text-xs text-ink-subtle mt-1">Upload photos or short video clips as evidence.</p>
-      </div>
       <!-- Voice note widget -->
       {% from "_macros.html" import voice_note_widget %}
       {{ voice_note_widget("voice_note", "Record a voice note (optional)") }}

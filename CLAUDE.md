@@ -52,7 +52,14 @@ the verify screen).
 App-factory pattern. `nse/__init__.py` builds the app, registers blueprints, injects template globals
 (company branding from config, unread-notification count, `AI_ENABLED`), defines the `datefmt` filter,
 `rupees` filter, and `upload_url` filter, and calls `db.create_all()` on startup (no migrations —
-schema changes to `models.py` require deleting `nse_amc.db` and re-seeding).
+schema changes to `models.py` require deleting `nse_amc.db` and re-seeding). An `after_request` hook
+sends `Cache-Control: no-store` (+ `Pragma: no-cache`) on every non-`/static/` response — every page
+here is dynamic/session-specific (notifications, role-gated content), so nothing should ever be served
+from a browser cache. This was added after phone-based QA testing: Safari's back-forward cache was
+showing pre-fix template renders on reload, making live fixes look like they hadn't landed. Static
+assets are excluded and keep normal caching. If you ever add a Python-level change here (not a template
+edit), remember the dev server needs a real process restart to pick it up — template edits alone
+auto-reload without one.
 
 **Blueprints** (`nse/blueprints/`), each owning one surface:
 - `public.py` — unauthenticated: home, plans, apply, **refill**, emergency, noc, **about**, enquiry, faq. Forms
@@ -180,6 +187,14 @@ The UI was redesigned from Claude Design prototypes in `~/Downloads/App-design/N
 **Sidebar nav item classes:** `.snav` (base), `.snav.active` (white bg 8% opacity + full white text). `.snav-section` = uppercase section label (grey). Defined in `<style>` inside `base_ops.html`'s `{% block body %}`.
 
 **Portal nav link classes:** `.pnav` (base), `.pnav.active` (white bg + border). Defined in `<style>` inside `base_portal.html`'s `{% block body %}`.
+
+**Mobile responsiveness (post-launch-QA patch).** The dark sidebar and portal top-nav were originally desktop-only fixed layouts — on a phone the 238px sidebar ate ~60% of the screen with no way to dismiss it, and the portal's one-row nav (logo + 5 pills + name/city + bell + avatar + logout) overflowed. Fixed:
+- **`base_ops.html`** (breakpoint `@media (max-width:860px)`): `.nse-sidebar` becomes `position:fixed` with `transform:translateX(-100%)`, slid open via a `.nse-sidebar-open` class toggled on `<body>` by a hamburger button (`.nse-ops-hamburger`, hidden on desktop) in the header. A `.nse-sidebar-backdrop` overlay (tap to close) sits between content and sidebar; clicking any sidebar `<a>` also closes it (inline `onclick` on the `<aside>` checking `event.target.closest('a')`). `.hidden-mobile-crumb` hides the breadcrumb "Northern Star /" prefix and the "New Quotation" button label (icon stays) below the breakpoint to prevent header overflow.
+- **`base_portal.html`** (breakpoint `@media (max-width:700px)`): the 5 nav pills sit in a `.pnav-links` container (`overflow-x:auto`, scrollbar hidden) so they scroll horizontally instead of wrapping/overflowing. `.nse-user-text` (logo subtitle, avatar name/city) and `.nse-logout-text` (the word "Logout") are hidden below the breakpoint — icons/avatar stay tappable, just without the label text.
+- **`home.html`** hero: a `NSE_MOBILE = window.innerWidth < 768` gate (top of `{% block scripts %}`) skips the video background entirely (`vid.pause()`, clears `src`, `vid.load()`, `display:none` — stops the download, not just hides it) and skips starting the particle-canvas `requestAnimationFrame` loop (56 points × pairwise distance every frame was visibly janky on mid-range phones) — canvas is hidden and the static `.hero-bg` navy gradient shows through untouched. Desktop behavior is unchanged.
+- **Admin data tables** (Quotations, Contracts, Enquiries, Tickets, etc. — the common `<div class="card overflow-hidden"><table class="w-full text-sm">` pattern): on mobile, `overflow-hidden` was clipping right-hand columns (e.g. "Amount") instead of letting you scroll to them. `base_ops.html`'s mobile block overrides this: `.nse-ops-inner .card:has(> table)` (and the one-level-nested variant) gets `overflow-x:auto`, and `table.w-full` gets `width:auto;min-width:640px` so columns keep a readable width and the table scrolls horizontally instead of being squeezed or clipped. Applies automatically to any existing/future table using that same card+table pattern — no per-template change needed.
+
+When adding new ops/portal pages or touching the hero, keep these breakpoints/classes in mind — don't reintroduce a fixed-width sidebar or an ungated animation loop.
 
 **Dark mode:** Still available on public pages only (floating toggle bottom-left). Ops console and portal are light-only — no dark mode toggle shown there. `html.dark` overrides in `base.html` still work for public templates.
 
@@ -782,6 +797,82 @@ paid and marks the contract fee paid once all are settled. Shown on `admin/contr
 **Broadcast** (Insights section). AMC-module sub-nav (`admin/amc_module.html`) gained Renewals / Insights /
 Broadcast tabs. `inject_globals` exposes `renewal_reminder_count` + `RAZORPAY_ENABLED` and calls
 `process_milestones()` alongside `process_visit_reminders()`.
+
+## Wave 12 (post-launch-testing bug-fix batch)
+
+**Auto-login on no-login quote acceptance.** `public._ensure_customer_account(sq)` now calls
+`login_user(user, remember=True)` whenever it resolves/creates a customer account and nobody is
+currently logged in — including the early-return path when `sq.customer_id` was already set (the
+original bug: that branch returned before reaching the login call). So a customer who opens a `/q/<token>`
+link, taps a payment method, and gets an account auto-created/linked is now **seamlessly logged into
+their portal session** — no separate OTP round-trip needed to see their contract. `public/quote_thanks.html`
+detects `current_user.is_authenticated` and shows "View my account" (→ `portal.dashboard`) instead of
+the "log in with your mobile number" prompt.
+
+**Renewals — tighter bands + one-click share.** `Contract.renewal_window` gained a `"7"` band (was only
+`expired/30/60/90`) so contracts expiring within a week surface separately from the rest of "this month".
+`admin/renewals.html` now groups the list into four labelled sections (Overdue / Due this week / Due this
+month / Later) instead of one flat list. `admin.renew_contract` now redirects straight to
+**`sq.detail_quotation`** (the copy-link/WhatsApp/QR share page) instead of the contract page, so raising
+a renewal and sharing it with the client is a single staff action. `reminders.renewal_reminders()`,
+`process_milestones()`, and the severity/order maps were all updated for the new band.
+
+**Material-quotation rate autofill bug fixed.** `admin/visit.html`'s inventory-driven quote picker built
+its JS lookup (`INV`) by hand-interpolating Jinja into a JS object literal
+(`"{{ it.name|replace('"','\\"') }}": {{ it.rate }}`) — Jinja's HTML autoescaping runs *before* that
+`replace`, so any item name containing a literal `"` (e.g. `G.I. "C" Class Pipe`) got turned into
+`&#34;` in the JS source, silently breaking the lookup key for exactly those items (~a few dozen out of
+the 1,273 imported SKUs). Fixed by porting the same safe pattern `sq_new.html` already used: the datalist
+`<option>` now carries a `data-rate` attribute, and `INV` is built at runtime in JS via
+`document.querySelectorAll('#inv-list option')` reading `o.dataset.rate` — the browser's own HTML
+entity decoding sidesteps the Jinja-escaping problem entirely. No template-string JS object literals for
+inventory data going forward — use the datalist `data-*` attribute + DOM-read pattern instead.
+
+**Visit "locked until scheduled date" feature removed.** The `is_future` guard in `admin/visit.html`
+(read-only fields + reschedule-only form for future-dated visits) is gone — technicians can now complete
+a visit early (client asked to move it up, technician free ahead of schedule, etc.). In its place: (1) a
+non-blocking informational banner on future-dated visits explaining early completion is fine, and (2) in
+`admin.visit()`, when a visit is saved with `status=completed` and its `scheduled_date` is still in the
+future, the route calls `_apply_reschedule(v, date.today())` automatically — snapping the date to today,
+logging a `visit_rescheduled` journey event, and notifying the client, exactly like an explicit
+reschedule. `is_future` is still computed and passed to the template (now only for that info banner) —
+no other section of the visit page is gated by it any more.
+
+**Check-in / check-out now notify the client and appear in their records.** `admin.visit_checkin` and
+`admin.visit_checkout` (`nse/blueprints/admin.py`) now call `notify()` on the contract's customer — "Your
+technician has arrived" on check-in, "Your technician has left the site" (with on-site duration) on
+check-out, both linking to `portal.contract`. `portal/visit.html` shows an on-site status line (arrival/
+departure time + duration) when `v.checkin_at` is set. `pdf/service_report.html`'s meta table gained an
+"On-site time" row for the same data, so it's part of the permanent record the client can download.
+
+**Removed from the UI (staff request — not what a fire-safety AMC customer needs to see):**
+- **EMI / instalment plan** — the whole card removed from `admin/contract.html` and
+  `portal/contract.html`. `Installment` model, `admin.contract_installments` / `admin.installment_pay`
+  routes are untouched (harmless, just unreferenced) in case this needs reviving later.
+- **Equipment & refill register** — removed from both `admin/contract.html` (add-equipment form + table)
+  and `portal/contract.html` (the register table + link to `portal.equipment_detail`). Routes
+  (`admin.add_equipment`, `admin.add_refill`, `portal.equipment_detail`) are untouched but now
+  unreachable from the UI. Note: `Contract.safety_score`'s "equipment health" component (25 of 100 pts)
+  reads `self.equipment` — with no UI to add equipment going forward it defaults to full marks (empty
+  list → `else: score += 25`), so this doesn't break the score, it just stops being a differentiator for
+  new contracts.
+- **Photo/video attachment upload on "Raise a complaint"** — removed the `<input type="file"
+  name="attachments">` block from both `portal/tickets.html` and the complaint modal on
+  `portal/contract.html` (large video uploads over the phone's connection were reported hanging the page).
+  Voice note stays. `portal.raise_ticket` already handled a missing `attachments` field gracefully
+  (`request.files.getlist` on an absent field just returns `[]`), so no backend change was needed —
+  `TicketAttachment`/`SupportTicket` and the upload-handling code are untouched for if this needs
+  re-enabling (e.g. with client-side video compression) later.
+
+**Email still needs a real mailbox password.** `send_quotation_email` (and all other
+`nse/email_service.py` senders) were reported as "not working" — this isn't a code bug: `.env` has no
+`MAIL_PASSWORD` and doesn't set `MAIL_SUPPRESS_SEND`, so it defaults to `true` and every send is logged
+to console only (`nse/config.py` / `nse/email_service.py._send`). To actually send: add
+`MAIL_PASSWORD=<the mailbox password>` and `MAIL_SUPPRESS_SEND=false` to `.env` — **but note Microsoft
+has been deprecating Basic Auth SMTP for Office 365** in many tenants, so a plain password may not work
+even once added; if so, either enable "Authenticated SMTP" for that mailbox in the Exchange admin center
++ generate an app password (if MFA is on), or switch to a transactional email API (SendGrid/Mailgun/SES)
+instead of Office365 SMTP.
 
 ## Known dev-grade pieces (not yet production)
 

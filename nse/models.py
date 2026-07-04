@@ -309,6 +309,8 @@ class Contract(db.Model):
             return None
         if d < 0:
             return "expired"
+        if d <= 7:
+            return "7"
         if d <= 30:
             return "30"
         if d <= 60:

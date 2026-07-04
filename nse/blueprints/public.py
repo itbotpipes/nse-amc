@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from flask import (Blueprint, render_template, request, redirect, url_for,
                    flash, current_app)
-from flask_login import current_user
+from flask_login import current_user, login_user
 
 from ..extensions import db
 from ..models import (AMCPlan, Contract, ServiceRequest, Enquiry, User,
@@ -466,7 +466,10 @@ def _ensure_customer_account(sq):
     Never overwrites an existing account — links to it by phone, then email.
     """
     if sq.customer_id:
-        return sq.customer
+        user = sq.customer
+        if user and not current_user.is_authenticated:
+            login_user(user, remember=True)
+        return user
     user = None
     phone = (sq.customer_phone or "").strip()
     email = (sq.customer_email or "").strip()
@@ -487,6 +490,11 @@ def _ensure_customer_account(sq):
         db.session.flush()
     if user and not sq.customer_id:
         sq.customer_id = user.id
+    if user and not current_user.is_authenticated:
+        # Seamless for non-tech-savvy customers: they just paid/accepted via a
+        # WhatsApp link, so log them straight into their portal account instead
+        # of also making them do an OTP round-trip to see the same contract.
+        login_user(user, remember=True)
     return user
 
 

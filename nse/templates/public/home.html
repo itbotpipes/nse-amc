@@ -578,6 +578,13 @@
 
 {% block scripts %}
 <script>
+/* Mobile / low-power gate: the particle canvas is O(n^2) per frame and the
+   video is a multi-MB autoplaying decode — both are fine on a desktop GPU but
+   visibly lag mid-range phones. Below this width we skip both and just show
+   the static .hero-bg navy gradient (defined in base.html) — no blank/broken
+   look, just no animation. */
+var NSE_MOBILE = window.innerWidth < 768;
+
 /* ════════════════════════════════════════════════════
    0. VIDEO BACKGROUND — fade in when ready, dim canvas
    ════════════════════════════════════════════════════ */
@@ -586,6 +593,15 @@
   var canvas = document.getElementById('heroCanvas');
   var overlay = document.getElementById('heroVidOverlay');
   if(!vid) return;
+  if(NSE_MOBILE){
+    /* Stop the download/decode outright — don't just hide it. */
+    vid.pause();
+    vid.removeAttribute('autoplay');
+    vid.src = '';
+    vid.load();
+    vid.style.display = 'none';
+    return;
+  }
   function onReady(){
     /* Fade in video */
     vid.style.opacity = '0.42';
@@ -606,6 +622,12 @@
 (function(){
   var canvas = document.getElementById('heroCanvas');
   if(!canvas) return;
+  if(NSE_MOBILE){
+    /* Skip the animation loop entirely — leave the canvas transparent so the
+       .hero-bg gradient underneath shows through untouched. */
+    canvas.style.display = 'none';
+    return;
+  }
   var ctx = canvas.getContext('2d');
   var hpa = document.getElementById('hpa');
   var hpr = document.getElementById('hpr');
