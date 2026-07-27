@@ -10,7 +10,24 @@ from .utils import rupees, upload_url
 
 def create_app(config_class=Config):
     import os
+    import sys
     app = Flask(__name__)
+    
+    # Path debugging for Vercel template resolution
+    print(f"--- PATH DEBUGGING ---", file=sys.stderr)
+    print(f"Current Working Directory (getcwd): {os.getcwd()}", file=sys.stderr)
+    print(f"App Root Path: {app.root_path}", file=sys.stderr)
+    print(f"App Template Folder: {app.template_folder}", file=sys.stderr)
+    print(f"App absolute template folder: {os.path.abspath(os.path.join(app.root_path, app.template_folder or 'templates'))}", file=sys.stderr)
+    try:
+        t_dir = os.path.join(app.root_path, app.template_folder or 'templates')
+        print(f"Templates directory exists: {os.path.exists(t_dir)}", file=sys.stderr)
+        if os.path.exists(t_dir):
+            print(f"Contents of templates dir: {os.listdir(t_dir)}", file=sys.stderr)
+    except Exception as e:
+        print(f"Error checking template folder: {e}", file=sys.stderr)
+    print(f"----------------------", file=sys.stderr)
+
     app.config.from_object(config_class)
     app.config.setdefault("SERVER_PORT", int(os.getenv("PORT", "5055")))
 
