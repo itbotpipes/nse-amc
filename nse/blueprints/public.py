@@ -86,7 +86,7 @@ def home():
             "open_requests": open_reqs,
         }
 
-    return render_template("public/home.html", plans=plans,
+    return render_template("site/home.html", plans=plans,
                            hero_contract=hero_contract, hero_hide=hero_hide,
                            hero=hero_ctx)
 
@@ -95,7 +95,7 @@ def home():
 def plans():
     residential = AMCPlan.query.filter_by(active=True, category="residential").order_by(AMCPlan.price).all()
     commercial = AMCPlan.query.filter_by(active=True, category="commercial").order_by(AMCPlan.price).all()
-    return render_template("public/plans.html", residential=residential, commercial=commercial)
+    return render_template("site/plans.html", residential=residential, commercial=commercial)
 
 
 @public_bp.route("/apply", methods=["GET", "POST"])
@@ -200,11 +200,11 @@ def apply():
             msg = ("Our maintenance team will review your application and "
                    "call you to confirm the schedule and activate your contract.")
 
-        return render_template("public/submitted.html",
+        return render_template("site/submitted.html",
                                kind="AMC application", reference=contract.reference,
                                sq_ref=sq_ref, message=msg)
     selected = request.args.get("plan_id", type=int)
-    return render_template("public/apply.html", plans=plans, selected=selected)
+    return render_template("site/apply.html", plans=plans, selected=selected)
 
 
 @public_bp.route("/emergency", methods=["GET", "POST"])
@@ -232,12 +232,12 @@ def emergency():
         notify_staff(f"Emergency request {sr.reference}",
                      f"{sr.name} · {sr.area or sr.location or ''} — respond within 4h.",
                      link=url_for("admin.service_request", req_id=sr.id))
-        return render_template("public/submitted.html",
+        return render_template("site/submitted.html",
                                kind="Emergency visit request", reference=sr.reference,
                                message="Our Fire Emergency Response team has been alerted. "
                                        "We will call you shortly with the team's ETA. For an "
                                        "immediate response, please also call our hotline.")
-    return render_template("public/emergency.html")
+    return render_template("site/emergency.html")
 
 
 @public_bp.route("/noc", methods=["GET", "POST"])
@@ -273,11 +273,11 @@ def noc():
         _save_attachments(request.files.getlist("site_photos"),
                           "service_request", sr.id, "photo")
         db.session.commit()
-        return render_template("public/submitted.html",
+        return render_template("site/submitted.html",
                                kind="NOC request", reference=sr.reference,
                                message="Our team will review your NOC requirement and get back "
                                        "to you with the documents and process needed.")
-    return render_template("public/noc.html")
+    return render_template("site/noc.html")
 
 
 @public_bp.route("/refill", methods=["GET", "POST"])
@@ -309,14 +309,14 @@ def refill():
             order.items.append(RefillItem(ext_type=t, capacity=cap, quantity=max(1, qty)))
         if not order.items:
             flash("Please add at least one extinguisher to refill.", "warning")
-            return render_template("public/refill.html")
+            return render_template("site/refill.html")
         db.session.add(order)
         db.session.commit()
         return render_template(
-            "public/submitted.html", kind="Refill booking", reference=order.reference,
+            "site/submitted.html", kind="Refill booking", reference=order.reference,
             message="Your extinguisher refill is booked. Our team will call to confirm "
                     "pickup/visit timing and the final amount after inspection.")
-    return render_template("public/refill.html")
+    return render_template("site/refill.html")
 
 
 @public_bp.route("/enquiry", methods=["GET", "POST"])
@@ -331,17 +331,17 @@ def enquiry():
         db.session.commit()
         flash("Thanks! Your question has been sent — our team will reply soon.", "success")
         return redirect(url_for("public.enquiry"))
-    return render_template("public/enquiry.html")
+    return render_template("site/enquiry.html")
 
 
 @public_bp.route("/faq")
 def faq():
-    return render_template("public/faq.html")
+    return render_template("site/faq.html")
 
 
 @public_bp.route("/about")
 def about():
-    return render_template("public/about.html")
+    return render_template("site/about.html")
 
 
 @public_bp.route("/qr")
@@ -374,7 +374,7 @@ def qr():
     except Exception:
         pass
 
-    return render_template("public/qr.html", url=url, local_ip=local_ip,
+    return render_template("site/qr.html", url=url, local_ip=local_ip,
                            port=port, qr_b64=qr_b64)
 
 
@@ -387,7 +387,7 @@ def visit_feedback(token):
     fb = VisitFeedback.query.filter_by(token=token).first_or_404()
 
     if fb.is_submitted:
-        return render_template("public/feedback_done.html", fb=fb)
+        return render_template("site/feedback_done.html", fb=fb)
 
     if request.method == "POST":
         f = request.form
@@ -412,9 +412,9 @@ def visit_feedback(token):
             ))
 
         db.session.commit()
-        return render_template("public/feedback_done.html", fb=fb)
+        return render_template("site/feedback_done.html", fb=fb)
 
-    return render_template("public/feedback_form.html", fb=fb)
+    return render_template("site/feedback_form.html", fb=fb)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -449,7 +449,7 @@ def custom_plan():
         db.session.commit()
         flash("Thank you! Our team will contact you within 24 hours with a tailored plan.", "success")
         return redirect(url_for("public.custom_plan"))
-    return render_template("public/custom_plan.html")
+    return render_template("site/custom_plan.html")
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -516,7 +516,7 @@ def public_quote(token):
         sq.viewed_at = datetime.utcnow()
         db.session.commit()
     upi_configured = bool(current_app.config.get("COMPANY_UPI_ID"))
-    return render_template("public/quote_public.html", sq=sq,
+    return render_template("site/quote_public.html", sq=sq,
                            upi_configured=upi_configured)
 
 
@@ -566,7 +566,7 @@ def public_quote_upi(token):
     if vpa:
         upi_link_str, qr_uri = upi_qr_data_uri(
             vpa, name, sq.grand_total, note=f"{sq.reference}")
-    return render_template("public/quote_upi.html", sq=sq, vpa=vpa,
+    return render_template("site/quote_upi.html", sq=sq, vpa=vpa,
                            upi_link=upi_link_str, qr_uri=qr_uri)
 
 
@@ -590,7 +590,7 @@ def public_quote_thanks(token):
     """Friendly confirmation screen after a payment choice."""
     sq = _get_sq_by_token(token)
     method = request.args.get("m", sq.payment_method or "")
-    return render_template("public/quote_thanks.html", sq=sq, method=method)
+    return render_template("site/quote_thanks.html", sq=sq, method=method)
 
 
 # --------------------------------------------------------------------------- #
@@ -613,7 +613,7 @@ def public_quote_pay_online(token):
     sq.gateway_order_id = order["id"]
     _ensure_customer_account(sq)
     db.session.commit()
-    return render_template("public/quote_checkout.html", sq=sq, order=order,
+    return render_template("site/quote_checkout.html", sq=sq, order=order,
                            key_id=payments.key_id())
 
 
