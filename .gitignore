@@ -22,3 +22,10 @@ nse/static/uploads/*
 
 # OS
 .DS_Store
+
+# Recreated virtual environments
+.venv_old/
+
+# Mobile packages and duplicates in the backend folder
+mobile/
+*.zip

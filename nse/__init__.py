@@ -25,6 +25,7 @@ def create_app(config_class=Config):
     from .blueprints.admin import admin_bp
     from .blueprints.chat import chat_bp
     from .blueprints.sq import sq_bp
+    from .blueprints.api import api_bp   # JSON REST API for the mobile app
 
     app.register_blueprint(public_bp)
     app.register_blueprint(auth_bp)
@@ -32,6 +33,7 @@ def create_app(config_class=Config):
     app.register_blueprint(admin_bp)
     app.register_blueprint(chat_bp)
     app.register_blueprint(sq_bp)
+    app.register_blueprint(api_bp)
 
     # Jinja helpers
     app.jinja_env.filters["rupees"] = rupees

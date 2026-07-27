@@ -874,6 +874,53 @@ even once added; if so, either enable "Authenticated SMTP" for that mailbox in t
 + generate an app password (if MFA is on), or switch to a transactional email API (SendGrid/Mailgun/SES)
 instead of Office365 SMTP.
 
+## Mobile app (JSON API + React Native / Expo)
+
+The web app is **entirely server-rendered** (Jinja + Flask-Login **session cookies**) — it had **no
+JSON API**, which is why a native mobile app could not be built against it directly. Added a thin JSON
+API layer on the same Flask backend, plus an Expo React Native client. **The website is unchanged** — the
+API is additive and reuses the same models/DB.
+
+**Backend API** (`nse/blueprints/api.py`, prefix **`/api/v1`**, registered in `nse/__init__.py`):
+stateless **bearer-token auth** signed with `itsdangerous` (already a dep — no new table, works on
+serverless Vercel). `issue_token(user)` mints a 30-day token carrying `{uid, role}`; decorators
+`token_required` / `customer_only` gate routes and expose `g.current_user`. Serializers (`contract_json`,
+`visit_json`, `service_quote_json`, `material_quote_json`, `ticket_json`, `request_json`, `journey_json`,
+`feedback_json`, etc.) mirror what the portal templates show. A blueprint-scoped `after_request` adds
+permissive CORS (native apps ignore CORS; Expo web + browsers need it) — no `flask-cors` dep. **Dev OTP:**
+`otp_request` returns `dev_code` in the JSON while no SMS gateway exists — before production, wire
+`generate_otp()` (in `utils.py`) to an SMS provider and **remove `dev_code` from the response**.
+
+The API covers the **full customer portal**. Endpoints: `GET /health`, `POST /auth/otp/request`,
+`POST /auth/otp/verify`, `GET/PUT /me`, `GET /dashboard` (profile+contracts+badge counts, one call for
+Home), `GET /contracts`, `GET /contracts/<id>` (full), `POST /contracts/<id>/renew` · `/refer`,
+`GET /contracts/<id>/agreement` (+`/accept`), `GET /visits/<id>`, `POST /visits/<id>/rate` (writes
+`VisitFeedback` + `customer_approved`), `GET /service-quotations` (+`/<id>`, `/accept`, `/negotiate`),
+`GET /quotations/<id>` (+`/decide` — reject needs `waiver_accepted`, returns `WAIVER_TEXT`),
+`GET /requests` (ServiceRequests + RefillOrders), `GET/POST /tickets` (+`/<id>`, `/retrigger`),
+`GET /journey`, `GET /notifications` (+`/read`), `GET /plans`. Writes reuse `notify`/`notify_staff` and
+log `CustomerJourneyEvent`s like the web. When adding an endpoint, reuse `portal.py`'s queries and the
+`_own_*` ownership helpers — never trust a client id without checking `customer_id == g.current_user.id`.
+
+**Mobile client** (`mobile/`): **React Native via Expo SDK 51** — the **full customer app** (one codebase,
+Android + iOS). React Navigation **bottom-tabs** (Home · Quotations · Notifications · Complaints · Profile)
+with detail screens on a native-stack above the tabs. `expo-secure-store` for the token, plain `fetch`
+(wrapper in `src/api/client.js` — set `API_BASE` there: LAN IP / `10.0.2.2` emulator / Vercel URL).
+`AuthContext` restores the token on launch + exposes `refresh()`. `theme.js` mirrors the web brand
+tokens/status pills and adds `rupees()`/`fmtDate()`/`fmtDateTime()`. `src/components/ui.js` is a shared UI
+kit (`Card`, `Pill`, `Btn`, `Row`, `Field`, `Loading`, `Empty`, `ErrorNote`, `SectionTitle`) — **build new
+screens from these, don't re-style from scratch**. Screens: Login/Verify, Home, Contract, Visit (+5-star
+rating), Quotations/QuotationDetail, MaterialQuote (approve/decline-with-waiver), Requests, Tickets/
+RaiseTicket/TicketDetail, Notifications, Journey, Profile, Agreement (scroll-to-accept), Refer.
+`@expo/vector-icons` (Ionicons) for all icons — **no emoji** (same policy as web). **Node/npm are only
+needed on the mobile developer's machine**, not the server/build machine. Extend by copying the recipe:
+JSON route in `api.py` → method in `src/api/client.js` → screen in `src/screens/` registered in `App.js`.
+Before stores: EAS Build (`eas build`); bundle IDs `com.northernstar.amc` set in `app.json`. **Staff/
+technician features stay on the web Ops Console** — the app is customer-facing only.
+
+**Handover doc:** `MOBILE_APP.md` (root) — for the external developer: why there was "no mobile code,"
+the tech stack, architecture diagram, run steps, and the build-out roadmap.
+
 ## Known dev-grade pieces (not yet production)
 
 OTP is a dev flow (code shown on screen, not SMS). Payments: manual cash/UPI **intent** by default; a
