@@ -8,25 +8,25 @@ from .extensions import db, login_manager, mail
 from .utils import rupees, upload_url
 
 
-def create_app(config_class=Config):
+def create_app(config_class=Config, root=None):
     import os
-    import sys
-    app = Flask(__name__)
-    
-    # Path debugging for Vercel template resolution
-    print(f"--- PATH DEBUGGING ---", file=sys.stderr)
-    print(f"Current Working Directory (getcwd): {os.getcwd()}", file=sys.stderr)
-    print(f"App Root Path: {app.root_path}", file=sys.stderr)
-    print(f"App Template Folder: {app.template_folder}", file=sys.stderr)
-    print(f"App absolute template folder: {os.path.abspath(os.path.join(app.root_path, app.template_folder or 'templates'))}", file=sys.stderr)
-    try:
-        t_dir = os.path.join(app.root_path, app.template_folder or 'templates')
-        print(f"Templates directory exists: {os.path.exists(t_dir)}", file=sys.stderr)
-        if os.path.exists(t_dir):
-            print(f"Contents of templates dir: {os.listdir(t_dir)}", file=sys.stderr)
-    except Exception as e:
-        print(f"Error checking template folder: {e}", file=sys.stderr)
-    print(f"----------------------", file=sys.stderr)
+    # If a project root is passed (e.g. from api/index.py on Vercel), use it to
+    # build explicit absolute paths so Flask can find templates and static files
+    # regardless of the working directory the serverless container uses.
+    if root is None:
+        root = os.path.dirname(os.path.abspath(__file__))  # nse/ package dir
+        template_folder = os.path.join(root, "templates")
+        static_folder   = os.path.join(root, "static")
+    else:
+        # root is the project root (parent of nse/)
+        template_folder = os.path.join(root, "nse", "templates")
+        static_folder   = os.path.join(root, "nse", "static")
+
+    app = Flask(
+        __name__,
+        template_folder=template_folder,
+        static_folder=static_folder,
+    )
 
     app.config.from_object(config_class)
     app.config.setdefault("SERVER_PORT", int(os.getenv("PORT", "5055")))

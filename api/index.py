@@ -7,10 +7,11 @@ whole Flask application (public site, portal, ops console, chat, static files).
 import os
 import sys
 
-# Ensure the project root is importable so `import nse` resolves when this file
-# is executed from the api/ directory inside the Vercel build.
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# The project root is one level above this api/ directory.
+# Add it to sys.path so `import nse` works correctly.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, PROJECT_ROOT)
 
 from nse import create_app
 
-app = create_app()
+app = create_app(root=PROJECT_ROOT)
