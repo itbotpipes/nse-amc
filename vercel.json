@@ -2,7 +2,10 @@
   "version": 2,
   "functions": {
     "api/index.py": {
-      "includeFiles": "nse/**"
+      "includeFiles": [
+        "nse/templates/**",
+        "nse/static/**"
+      ]
     }
   },
   "routes": [
